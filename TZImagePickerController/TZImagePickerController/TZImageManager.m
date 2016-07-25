@@ -27,6 +27,8 @@ static CGFloat TZScreenScale;
     dispatch_once(&onceToken, ^{
         manager = [[self alloc] init];
         manager.cachingImageManager = [[PHCachingImageManager alloc] init];
+        // manager.cachingImageManager.allowsCachingHighQualityImages = YES;
+        
         TZScreenWidth = [UIScreen mainScreen].bounds.size.width;
         // 测试发现，如果scale在plus真机上取到3.0，内存会增大特别多。故这里写死成2.0
         TZScreenScale = 2.0;
@@ -565,6 +567,10 @@ static CGFloat TZScreenScale;
             session.outputFileType = [supportedTypeArray objectAtIndex:0];
         }
         
+        if (![[NSFileManager defaultManager] fileExistsAtPath:[NSHomeDirectory() stringByAppendingFormat:@"/tmp"]]) {
+            [[NSFileManager defaultManager] createDirectoryAtPath:[NSHomeDirectory() stringByAppendingFormat:@"/tmp"] withIntermediateDirectories:YES attributes:nil error:nil];
+        }
+
         // Begin to export video to the output path asynchronously.
         [session exportAsynchronouslyWithCompletionHandler:^(void) {
             switch (session.status) {
@@ -574,12 +580,14 @@ static CGFloat TZScreenScale;
                     NSLog(@"AVAssetExportSessionStatusWaiting"); break;
                 case AVAssetExportSessionStatusExporting:
                     NSLog(@"AVAssetExportSessionStatusExporting"); break;
-                case AVAssetExportSessionStatusCompleted:
+                case AVAssetExportSessionStatusCompleted: {
                     NSLog(@"AVAssetExportSessionStatusCompleted");
-                    if (completion) {
-                        completion(outputPath);
-                    }
-                    break;
+                    dispatch_async(dispatch_get_main_queue(), ^{
+                        if (completion) {
+                            completion(outputPath);
+                        }
+                    });
+                }  break;
                 case AVAssetExportSessionStatusFailed:
                     NSLog(@"AVAssetExportSessionStatusFailed"); break;
                 default: break;
